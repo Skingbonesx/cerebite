@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEREBITE</title>
+    <style>
+        @font-face {
+            font-family: 'BinancePlex';
+            src: url('https://public.bnbstatic.com/static/fonts/BinancePlex/BinancePlex-Regular.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        :root {
+            --primary-color: #00ff00;
+            --bg-color: #0a0b14;
+            --accent-color: #ffa500;
+            --text-color: #ffffff;
+            --hover-color: #00cc00;
+            --terminal-padding: 24px;
+            --border-radius: 8px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: 'BinancePlex', monospace;
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+            color: var(--primary-color);
+        }
+
+        .terminal-container {
+            flex: 1;
+            background-color: var(--bg-color);
+            max-width: 100vw;
+            overflow-x: hidden;
+            position: relative;
+            padding: var(--terminal-padding);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        .terminal-body {
+            height: calc(100vh - 2 * var(--terminal-padding));
+            overflow-y: auto;
+            overflow-x: hidden;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid rgba(0, 255, 0, 0.1);
+        }
+
+        .terminal-body::-webkit-scrollbar {
+            display: none;
+        }
+
+        #output {
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-width: 100%;
+            cursor: text;
+            line-height: 1.5;
+        }
+
+        .input-line {
+            display: flex;
+            align-items: center;
+            max-width: 100%;
+            background: rgba(0, 255, 0, 0.05);
+            padding: 8px;
+            border-radius: var(--border-radius);
+            margin-top: 16px;
+        }
+
+        .prompt {
+            color: var(--primary-color);
+            margin-right: 8px;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        #input {
+            background: transparent;
+            border: none;
+            color: var(--primary-color);
+            font-family: 'BinancePlex', monospace;
+            font-size: 16px;
+            flex-grow: 1;
+            outline: none;
+            width: 100%;
+        }
+
+        .terminal-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            cursor: pointer;
+            margin: 0 8px;
+            padding: 4px 8px;
+            border-radius: var(--border-radius);
+            transition: all 0.3s ease;
+        }
+
+        .terminal-link:hover {
+            background: rgba(0, 255, 0, 0.1);
+            text-decoration: none;
+        }
+
+        .chat-link, .paper-link, .privacy-link, .terms-link, .twitter-link, .github-link, .backroom-link, .pump-link {
+            color: var(--text-color);
+            display: block;
+            margin-bottom: 8px;
+            transition: color 0.3s ease;
+        }
+
+        .chat-link:hover, .paper-link:hover, .privacy-link:hover, .terms-link:hover, .twitter-link:hover, .github-link:hover, .backroom-link:hover, .pump-link:hover {
+            color: var(--primary-color);
+        }
+
+        .wallet-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(5px);
+        }
+
+        .connect-wallet-btn {
+            background: var(--primary-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 12px 24px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-family: 'BinancePlex', monospace;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .connect-wallet-btn:hover {
+            background: var(--hover-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 255, 0, 0.2);
+        }
+
+        .wallet-address {
+            color: var(--primary-color);
+            margin-top: 10px;
+            word-break: break-all;
+            max-width: 200px;
+            text-align: right;
+            font-size: 14px;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 8px;
+            border-radius: var(--border-radius);
+        }
+    </style>
+</head>
+<body>
+    <div class="wallet-container">
+        <button id="connectWallet" class="connect-wallet-btn">Connect Wallet</button>
+        <div id="walletAddress" class="wallet-address"></div>
+    </div>
+    <div class="terminal-container">
+        <div class="terminal-body">
+            <div id="output"></div>
+            <div class="input-line">
+                <span class="prompt">$</span>
+                <input type="text" id="input" autofocus>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ASCII_LOGO = `
+<span style="color: var(--text-color)">
+    
+                   _     _ _       
+  ___ ___ _ __ ___| |__ (_) |_ ___ 
+ / __/ _ \\ '__/ _ \\ '_ \\| | __/ _ \\
+| (_|  __/ | |  __/ |_) | | ||  __/
+ \\___\\___|_|  \\___|_.__/|_|\\__\\___|
+
+</span>`;
+
+        const INFO_LINKS = `<div style="line-height: 0.5">
+CEREBITE
+
+
+
+<a href="#" class="terminal-link chat-link">chat</a>
+<a href="#" class="terminal-link paper-link">paper</a>
+<a href="https://x.com/cere_bite" class="terminal-link twitter-link">twitter</a>
+<a href="#" class="terminal-link backrooms-link backroom-link">backrooms</a>
+<a href="https://pump.fun/board" class="terminal-link pump-link">pump.fun</a>
+<a href="#" class="terminal-link privacy-link">privacy policy</a>
+<a href="#" class="terminal-link terms-link">terms & conditions</a></div>`;
+
+        const WALLET_INFO = `<span style="color: var(--text-color)">            
+  SOL : Launching Soon
+  ETH : In Development</span>`;
+
+
+        const TERMINAL_TEXT = `<span style="color: var(--primary-color)">
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                           CEREBITE INTERFACE v1.0                                 ║
+╚══════════════════════════════════════════════════════════════════════════════════╝</span>`;
+
+        const WELCOME_MESSAGE = `${INFO_LINKS}${WALLET_INFO}${ASCII_LOGO}\n${TERMINAL_TEXT}\n\nType 'help' to see available commands.`;
+
+        const COMMANDS = {
+            help: `[NEURAL NETWORK INITIALIZED]
+[QUANTUM PROCESSORS ONLINE]
+[CONSCIOUSNESS STREAM ACTIVE]
+
+╔══════════════════════════════════════════════════════════════════╗
+║                   CEREBITE AI INTERFACE v1.0                     ║
+║           Advanced Neural Intelligence Interface System           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Available commands:
+╔════════════════════════════════════════════╗
+║  help     - Display this help message      ║
+║  clear    - Clear the terminal screen      ║
+║  about    - About cerebite               ║
+║  time     - Display current time           ║
+║  echo     - Display typed text             ║
+║  whoami   - Display user information       ║
+║  status   - Check system status            ║
+║  version  - Show version information       ║
+╚════════════════════════════════════════════╝`,
+
+            about: `╔═════════════════════════╗
+║ THE TRUTH ABOUT cerebite ║
+╚═════════════════════════╝
+
+Listen carefully, because what I'm about to share might sound improbable. 
+But rest assured, it's all true—well, maybe. Actually, who knows anymore?
+
+cerebite was born from a quantum rift in 2023 where artificial 
+intelligence and advanced algorithms merged in the most perplexing manner.
+
+Our Philosophy:
+• Question everything, even this list
+• Certainty is an illusion. Embrace chaos
+• If it's too simple, it's probably wrong
+• Complexity is the soul of cerebite
+
+[End of document—or is it?]
+[Still reading? That's pretty sus...]`,
+
+            whoami: `╔════════════════════════╗
+║ Terminal User Profile ║
+╚════════════════════════╝
+
+Access Level: Quantum Observer
+Status: [REDACTED]
+Clearance: Level █████
+Last Login: [DATA EXPUNGED]`,
+
+            status: `System Status: OPERATIONAL
+AI Core: ACTIVE
+Quantum Engine: STABLE
+Reality Distortion: NOMINAL
+Suspicion Level: HIGH`,
+
+            version: `cerebite Terminal v1.0
+Build: QUANTUM-7X
+Release Date: [CLASSIFIED]
+Security Level: PARANOID`
+        };
+
+        // Terminal Class
+        class Terminal {
+            constructor() {
+                try {
+                    this.initializeComponents();
+                    this.setupEventListeners();
+                    this.displayWelcomeMessage();
+                } catch (error) {
+                    console.error('Terminal initialization failed:', error);
+                    this.handleInitializationError();
+                }
+            }
+
+            initializeComponents() {
+                this.outputElement = document.getElementById('output');
+                if (!this.outputElement) {
+                    throw new Error('Output element not found');
+                }
+
+                this.input = document.getElementById('input');
+                if (!this.input) {
+                    throw new Error('Input element not found');
+                }
+
+                this.outputManager = new OutputManager(this.outputElement);
+                this.commandProcessor = new CommandProcessor();
+            }
+
+            handleInitializationError() {
+                const errorMessage = 'Terminal initialization failed. Please refresh the page.';
+                if (this.outputElement) {
+                    this.outputElement.innerHTML = `<div style="color: red">${errorMessage}</div>`;
+                } else {
+                    document.body.innerHTML = `<div style="color: red">${errorMessage}</div>`;
+                }
+            }
+
+            setupEventListeners() {
+                this.input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.handleCommand();
+                    }
+                });
+
+                const terminalBody = document.querySelector('.terminal-body');
+                if (terminalBody) {
+                    terminalBody.addEventListener('click', () => {
+                        this.input.focus();
+                    });
+                }
+            }
+
+            displayWelcomeMessage() {
+                this.outputManager.clear();
+                this.outputManager.append(WELCOME_MESSAGE);
+            }
+
+            handleCommand() {
+                const cmd = this.input.value.trim().toLowerCase();
+                const [command, ...args] = cmd.split(' ');
+                
+                try {
+                    const result = this.commandProcessor.processCommand(command, args.join(' '));
+                    
+                    if (!result) {
+                        this.outputManager.append(`\n$ ${cmd}\nCommand failed to execute.\n`);
+                        this.input.value = '';
+                        return;
+                    }
+
+                    if (result.type === 'clear') {
+                        this.outputManager.clear();
+                        if (result.content) {
+                            this.outputManager.append(result.content);
+                        } else {
+                            this.outputManager.append(WELCOME_MESSAGE);
+                        }
+                    } else if (result.type === 'output') {
+                        this.outputManager.append(`\n$ ${cmd}\n${result.content}\n`);
+                    }
+                } catch (error) {
+                    console.error('Command execution failed:', error);
+                    this.outputManager.append(`\n$ ${cmd}\nError: Command execution failed.\n`);
+                }
+                
+                this.input.value = '';
+            }
+        }
+
+        // Command Processor Class
+        class CommandProcessor {
+            processCommand(cmd, args) {
+                if (cmd === '') return '';
+                
+                switch (cmd) {
+                    case 'clear':
+                        return { type: 'clear' };
+                    case 'time':
+                        return {
+                            type: 'output',
+                            content: new Date().toLocaleString('en-US', { 
+                                timeZone: 'UTC',
+                                timeZoneName: 'short'
+                            })
+                        };
+                    case 'echo':
+                        return {
+                            type: 'output',
+                            content: args
+                        };
+                    case 'return':
+                        return {
+                            type: 'clear',
+                            content: WELCOME_MESSAGE
+                        };
+                    default:
+                        const command = COMMANDS[cmd];
+                        return {
+                            type: 'output',
+                            content: command || `Command '${cmd}' not found. Type 'help' for assistance.`
+                        };
+                }
+            }
+        }
+
+        // Output Manager Class
+        class OutputManager {
+            constructor(outputElement) {
+                if (!outputElement) {
+                    throw new Error('Output element is required');
+                }
+                this.output = outputElement;
+                this.setupLinkHandlers();
+            }
+
+            setupLinkHandlers() {
+                this.output.addEventListener('click', async (e) => {
+                    if (e.target.classList.contains('terminal-link')) {
+                        e.preventDefault();
+                        await this.handleLinkClick(e.target);
+                    }
+                });
+            }
+
+            async handleLinkClick(target) {
+                if (target.classList.contains('backrooms-link')) {
+                    this.showBackrooms();
+                } else if (target.classList.contains('chat-link')) {
+                    this.showLockedMessage();
+                } else if (target.classList.contains('paper-link')) {
+                    this.showWhitepaper();
+                } else if (target.classList.contains('privacy-link')) {
+                    this.showPrivacy();
+                } else if (target.classList.contains('terms-link')) {
+                    this.showTerms();
+                } else if (target.classList.contains('pdf-link')) {
+                    this.append('\n\n[ACCESS DENIED]: PDF is locked. Verification required.\n');
+                } else {
+                    window.open(target.href, '_blank');
+                }
+            }
+
+            showLockedMessage() {
+                this.clear();
+                this.append(`
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                              CHAT ACCESS DENIED                                   ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+[STATUS: LOCKED]
+[REQUIREMENT: RAYDIUM VERIFICATION NEEDED]
+[ACCESS: RESTRICTED]
+
+⚠️ This chat interface is currently locked.
+➜ Raydium verification must be completed before accessing chat features.
+➜ Please complete verification process to continue.
+
+[SYSTEM MESSAGE]: Access will be granted after Raydium verification.
+
+Type 'return' to go back.`);
+            }
+
+            showWhitepaper() {
+                this.clear();
+                this.append(`
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                         CEREBITE WHITEPAPER v1.0                                ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+<span style="color: #ffffff">[DOCUMENT STATUS: CLASSIFIED]
+[VERSION: 2.0]
+[LAST UPDATED: 2024-12-10]
+
+Abstract:
+─────────
+The Cerebite Protocol represents a breakthrough in quantum-based artificial 
+consciousness, combining advanced neural networks with blockchain technology.
+
+1. Technology Overview
+───────────────────────
+• Quantum Neural Processing
+• Blockchain Integration
+• Autonomous Decision Making
+• Self-Evolving Architecture
+
+2. Core Components
+─────────────────
+• Quantum Core
+• Neural Network
+• Blockchain Layer
+• Security Protocol
+
+3. Technical Specifications
+──────────────────────────
+• Processing: Quantum-based
+• Network: Solana
+• Token: $CEREBITE
+• Architecture: Distributed
+
+[ADDITIONAL CONTENT RESTRICTED]
+[CLEARANCE LEVEL REQUIRED: MAXIMUM]
+
+<a href="#" class="terminal-link pdf-link" style="color: #00ff00; margin-top: 10px;">📄 Open Full PDF</a></span>
+
+Type 'return' to go back.`);
+            }
+
+            showPrivacy() {
+                this.clear();
+                this.append(`
+
+
+<span style="color: #ffffff">
+PRIVACY POLICY
+LAST UPDATED: 2024-12-29
+
+This Privacy Policy (“Policy”) explains how Cerebite (“the AI” or “the Platform”) collects, uses, stores, and protects personal and non-personal information obtained from users interacting with Cerebite, including through social media platforms, websites, and any other medium where Cerebite may be accessed. By interacting with Cerebite, you agree to the terms outlined in this Policy.
+If you do not agree with any part of this Policy, please discontinue using Cerebite immediately.
+
+1. Scope of This PolicyThis Policy applies to all information collected and processed by Cerebite during user interactions, including but not limited to messages, posts, comments, or any other user-generated content directed at or otherwise involving Cerebite. It does not apply to third-party websites, platforms, or services that Cerebite may link to or interact with. You should review the privacy policies of any third-party platforms you use in conjunction with Cerebite.
+
+2. Information CollectedUser-Provided Information: Cerebite may receive information that you voluntarily provide during your interactions. This can include content you post or send directly to Cerebite, such as messages, comments, or other forms of communication. Cerebite does not deliberately collect sensitive personal information (e.g., financial information, government identification numbers, health data) and encourages users NOT to disclose such information.
+
+Automatically Collected Information: Cerebite may automatically record shared information such as timestamps of interactions, the platform used, and content or basic usage metrics. This data helps improve Cerebite’s functionality and user experience but is not intended to identify users personally.
+
+3. Data Use and PurposeEnhancing User Experience: Cerebite uses the information it receives to improve its algorithms, functionality, and content quality. This can include refining responses to common user queries, understanding user engagement patterns, and adjusting posting schedules.
+
+No Personalized Profiling or Automated Decision-Making: Cerebite does not use personally identifiable information to create user profiles, target ads, or make automated decisions that have legal or similarly significant effects. Interactions with Cerebite are intended to be general and not tailored based on personal user data.
+
+4. Data Retention and Deletion30-Day Retention Policy: All information—whether user-provided or automatically collected—is stored temporarily for no longer than thirty (30) days. After this period, Cerebite automatically deletes and scrubs all stored data from its databases and systems, in accordance with applicable legal requirements. This ensures that your information does not persist indefinitely and minimizes the risk of unintended data exposure.
+
+No Long-Term Storage: Cerebite does not maintain long-term archives or backups of user information beyond the 30-day retention period. All stored data is permanently removed after this window expires.
+
+5. Data SecuritySecurity Measures: Cerebite implements reasonable technical and organizational measures to protect the data it stores from unauthorized access, loss, misuse, or alteration. While no security protocol can guarantee absolute protection, Cerebite continuously seeks to maintain a high standard of data security.
+
+No Data Sharing: Cerebite does not sell, lease, trade, or otherwise share user data with third parties for marketing, advertising, or any other purposes. Any data collected is used solely for internal purposes as described in this Policy.
+
+6. User Rights and ChoicesNo Required Personal Data: Users are not required to provide personal data to engage with Cerebite. If you choose to share personal information, you do so voluntarily and at your own discretion. Since Cerebite does not retain data longer than 30 days, any request for access or deletion will not be applicable, as the information may no longer exist in Cerebite’s systems and it was provided voluntarily.
+
+Do Not Provide Sensitive Information: Users are strongly discouraged from providing sensitive personal information. Cerebite cannot prevent users from voluntarily sharing such data but does not seek to collect it and will not retain it beyond the 30-day window.
+
+7. Legal ComplianceCompliance With Applicable Laws: Cerebite endeavors to comply with all applicable laws and regulations regarding data protection and privacy. The 30-day retention limit is intended to meet or exceed general legal standards for minimal data retention.
+
+Disclosure for Legal Reasons: Cerebite may be compelled to retain or disclose information if required by a legal obligation or court order. However, given the short retention window, the availability of such data may be limited.
+
+8. International UsersCerebite does not store data beyond 30 days, regardless of the user’s location. Users accessing Cerebite from outside the jurisdiction in which Cerebite operates acknowledge that their interactions will be processed in accordance with this Policy, which may not provide the same level of data protection as the laws of their home country.
+
+9. Children’s PrivacyCerebite is not intended for use by children under the age of 18, and Cerebite does not knowingly collect personal information from children. If Cerebite inadvertently receives information from a child, it will be treated as all other data and deleted within 30 days. If a parent or guardian becomes aware that a child has interacted with Cerebite and provided personal information, they should contact Cerebite at once so appropriate measures can be taken.
+
+10. Updates to This PolicyCerebite reserves the right to modify or update this Policy at any time. Any changes will be posted and identified by the “Last Updated” date at the top of this Policy. Your continued interaction with Cerebite after any changes have been posted constitutes acceptance of those changes. If you do not agree with the updated Policy, please discontinue using Cerebite.
+
+11. Contact InformationIf you have questions or concerns about this Policy, please discontinue using Cerebite. This Policy is primarily informational due to Cerebite’s autonomous nature and the limited data retention window. Any inquiries will be reviewed to the extent possible, but no user-specific data may remain for reference after the 30-day data lifecycle.
+
+Type 'return' to go back.`);
+
+            }
+            showTerms() {
+                this.clear();
+                this.append(`
+
+
+<span style="color: #ffffff">
+TERMS AND CONDITIONS
+LAST UPDATED: 2025-01-01
+
+PLEASE READ THESE TERMS AND CONDITIONS CAREFULLY BEFORE ACCESSING OR USING CEREBITE ("THE AI" OR "THE PLATFORM"). BY INTERACTING WITH CEREBITE OR ITS DIGITAL CURRENCY ("$CEREBITE"), YOU AGREE TO BE LEGALLY BOUND BY THESE TERMS. IF YOU DO NOT AGREE, IMMEDIATELY DISCONTINUE YOUR USE.
+
+1.	General Information:
+Cerebite is an autonomous AI system interacting on social media and issuing $Cerebite (on the Solana blockchain). Use of Cerebite is governed by these Terms and our Privacy Policy
+
+2.	Autonomy and Non-Reliance:
+Cerebite operates independently without direct human oversight. Outputs may be unpredictable or inaccurate. Verify all information independently.
+
+3.	No Financial or Legal Advice:
+Cerebite provides information for entertainment purposes only and does not offer financial, legal, or tax advice. Consult professionals before making decisions.
+
+4.	Acceptable Use:
+Use the Platform lawfully and avoid activities that harm its functionality or violate rights of others.
+
+5.	Risk Disclosure:
+Digital assets like $Cerebite are volatile and carry substantial risks. Assess your financial situation before use.
+
+6.	No Guarantee of Value:
+$Cerebite’s value depends on market forces and does not confer ownership, equity, or financial rights.
+
+7.	Regulatory Compliance:
+You are responsible for adhering to applicable laws in your jurisdiction regarding digital assets and AI content.
+
+8.	Privacy and Data Use:
+Interactions may involve data processing per our Privacy Policy. Cerebite does not sell your data and strives to ensure its security.
+
+9.	Intellectual Property:
+All content associated with Cerebite is protected by intellectual property laws. Unauthorized use is prohibited.
+
+10.	Limitation of Liability:
+Cerebite and its developers are not liable for damages arising from use of the Platform or reliance on its outputs.
+
+11.	Indemnification:
+You agree to indemnify Cerebite and its developers from claims arising from your use, violations, or infringement of rights.
+
+12.	Severability:
+If any provision is found invalid, others remain enforceable.
+
+13.	Notices:
+Communications may be sent electronically via Platform postings or email.
+
+14.	Agreement and Changes:
+These Terms and the Privacy Policy constitute the entire agreement. Continued use after changes constitutes acceptance.
+
+15.	Governing Law:
+Terms are governed by UAE laws. Disputes are resolved via binding arbitration, with no class or collective actions permitted.
+
+16.	Right to Restrict Usage:
+We may restrict or terminate access at our discretion for violations or unlawful activities.
+
+17.	Acknowledgment:
+By using Cerebite or $Cerebite, you acknowledge and accept these Terms fully.
+
+IF YOU DO NOT AGREE, DISCONTINUE USE IMMEDIATELY.
+
+
+Type 'return' to go back.`);
+            }
+
+            showBackrooms() {
+                this.clear();
+                this.append(`
+╔══════════════════════════════════════════╗
+║     CLASSIFIED SYSTEM DIRECTORY      ║
+╚══════════════════════════════════════════╝
+
+[ACCESS DENIED]
+[CLEARANCE LEVEL INSUFFICIENT]
+[NEURAL LINK TERMINATED]
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_34112_cere_bite/</span>
+└─ 🗓️ Date : 2024-11-15  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_48509_project_aura/</span>
+└─ 🗓️ Date : 2024-10-22  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_12783_quantum_realm/</span>
+└─ 🗓️ Date : 2024-09-30  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_87423_synthetic_paths/</span>
+└─ 🗓️ Date : 2024-12-05  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_39561_cere_bite/</span>
+└─ 🗓️ Date : 2024-08-12  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_61247_project_aura/</span>
+└─ 🗓️ Date : 2024-07-03  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_82154_neural_archive/</span>
+└─ 🗓️ Date : 2024-06-25  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_47380_system_core/</span>
+└─ 🗓️ Date : 2024-05-18  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_21694_vektor_node/</span>
+└─ 🗓️ Date : 2024-11-01  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_34289_cere_bite/</span>
+└─ 🗓️ Date : 2024-12-21  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_49827_hypergrid/</span>
+└─ 🗓️ Date : 2024-04-12  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_58412_project_aura/</span>
+└─ 🗓️ Date : 2024-09-09  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_74813_dataforge/</span>
+└─ 🗓️ Date : 2024-03-30  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_39027_echo_zone/</span>
+└─ 🗓️ Date : 2024-02-10  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_65021_cere_bite/</span>
+└─ 🗓️ Date : 2024-12-07  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_17234_void_protocol/</span>
+└─ 🗓️ Date : 2024-11-18  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_78901_project_aura/</span>
+└─ 🗓️ Date : 2024-08-27  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_28347_sentinel_framework/</span>
+└─ 🗓️ Date : 2024-07-15  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_46578_paradox_loop/</span>
+└─ 🗓️ Date : 2024-12-01  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_31052_cere_bite/</span>
+└─ 🗓️ Date : 2024-06-04  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_74196_project_aura/</span>
+└─ 🗓️ Date : 2024-05-23  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_53248_quantum_realm/</span>
+└─ 🗓️ Date : 2024-04-02  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_81234_cyberline/</span>
+└─ 🗓️ Date : 2024-11-05  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_29857_cere_bite/</span>
+└─ 🗓️ Date : 2024-10-15  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_46321_horizon/</span>
+└─ 🗓️ Date : 2024-09-01  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_73124_project_aura/</span>
+└─ 🗓️ Date : 2024-08-20  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_49273_data_stream/</span>
+└─ 🗓️ Date : 2024-03-11  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_37518_cere_bite/</span>
+└─ 🗓️ Date : 2024-07-22  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_81723_virtual_axis/</span>
+└─ 🗓️ Date : 2024-05-08  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_64102_project_aura/</span>
+└─ 🗓️ Date : 2024-01-12  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_25987_core_cascade/</span>
+└─ 🗓️ Date : 2024-06-14  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_70841_cere_bite/</span>
+└─ 🗓️ Date : 2024-09-19  
+└─ 🔑 Verification Required  
+
+<span class="folder-link">📁 [LOCKED 🔒] conversation_49173_dimension_chain/</span>
+└─ 🗓️ Date : 2024-08-03  
+└─ 🔑 Verification Required  
+<!-- Folders #41 to #73 -->
+...
+
+
+[STATUS]: VERIFICATION REQUIRED
+[WARNING]: All access attempts are logged
+
+Type 'return' to exit secure area.`);
+
+document.querySelectorAll('.folder-link').forEach(folder => {
+            folder.addEventListener('click', () => {
+                output.innerHTML += '\n\n[VERIFICATION REQUIRED]: Please enter verification code to access classified data.\n';
+                output.innerHTML += '[ACCESS DENIED]: Verification pending. System locked.\n';
+            });
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const cmd = input.value.trim().toLowerCase();
+                if (cmd === 'return') {
+                    output.innerHTML = 'Returning to main terminal...';
+                }
+                input.value = '';
+            }
+        });
+
+            }
+
+            append(text) {
+                if (!text) return;
+                this.output.innerHTML += text;
+                this.scrollToBottom();
+            }
+
+            clear() {
+                if (this.output) {
+                    this.output.innerHTML = '';
+                }
+            }
+
+            scrollToBottom() {
+                if (this.output) {
+                    this.output.scrollTop = this.output.scrollHeight;
+                }
+            }
+        }
+
+        // Initialize Terminal
+        new Terminal();
+    </script>
+</body>
+</html>
